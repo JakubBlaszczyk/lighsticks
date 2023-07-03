@@ -7,17 +7,7 @@
 #include "Leds.h"
 
 static COLOR_RGB gTemperatures[] = {{255, 255, 255}, {147, 255, 41}, {241, 255, 224}, {235, 212, 255}, {244, 255, 242}};
-#ifdef TAK
-static COLOR_RGB gColorCorrection = {255, 255, 255};
-#define BRIGHTNESS 255
-#define PRINT printf
-#define BUFFER_DUMP BufferDump
-#else
 static COLOR_RGB gColorCorrection = {176, 255, 240};
-#define BRIGHTNESS 50
-#define PRINT
-#define BUFFER_DUMP
-#endif
 
 typedef struct
 {
@@ -26,6 +16,7 @@ typedef struct
   uint8_t SectionsSize;
   uint16_t BufferIndex;
   uint16_t BufferSize;
+  uint8_t Brightness;
   uint8_t LedIndex;
   uint8_t SectionIndex;
 } LED_CONFIG;
@@ -34,23 +25,6 @@ LED_CONFIG *gConfigs = NULL;
 uint8_t gConfigsSize = 0;
 uint8_t gConfigNumber = 0;
 uint8_t gHue = 0;
-
-#ifdef TAK
-
-void BufferDump(uint8_t ConfigIndex) {
-  PRINT("Buffer dump:\n");
-  for (int i = 0; i < gConfigs[ConfigIndex].BufferSize / 24; i++) {
-    PRINT("%1d [", i);
-    for (int j = 0; j < 24; j++) {
-      PRINT("%d:%1d ", j, gConfigs[ConfigIndex].Buffer[i * 24 + j] );
-    }
-    PRINT("\b]\n");
-  }
-  PRINT("\n");
-}
-
-#endif
-
 
 void InitializeConfigs(uint8_t AmountOfConfigs) {
   if (gConfigs != NULL) {
@@ -63,6 +37,8 @@ void InitializeConfigs(uint8_t AmountOfConfigs) {
 }
 
 uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const uint8_t *LedCounts, uint16_t *Buffer, uint16_t BufferSize) {
+  uint8_t Index;
+
   if (gConfigNumber >= gConfigsSize) {
     return 1;
   }
@@ -73,8 +49,13 @@ uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const ui
 
   gConfigs[ConfigIndex].Sections = malloc(sizeof(LED_SECTION) * AmountOfSections);
   memset(gConfigs[ConfigIndex].Sections, 0, sizeof(LED_SECTION) * AmountOfSections);
-  for (int Index = 0; Index < AmountOfSections; Index++) {
-    gConfigs[ConfigIndex].Sections[Index].LedCount = LedCounts[Index];
+
+  for (Index = 0; Index < AmountOfSections; Index++) {
+    if (LedCounts == NULL) {
+      gConfigs[ConfigIndex].Sections[Index].LedCount = 1;
+    } else {
+      gConfigs[ConfigIndex].Sections[Index].LedCount = LedCounts[Index];
+    }
   }
   gConfigs[ConfigIndex].SectionsSize = AmountOfSections;
   gConfigs[ConfigIndex].BufferSize = BufferSize;
@@ -88,11 +69,7 @@ LED_SECTION *GetLedSection(const uint8_t ConfigIndex, const uint8_t SectionIndex
 }
 
 uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
-#ifdef TAK
-  static uint8_t PwmValue[2] = {0, 1};
-#else
   static uint8_t PwmValue[2] = {30, 60};
-#endif
   uint8_t ColorOffset = (gConfigs[ConfigIndex].BufferIndex % 24) / 8;
   uint8_t ColorBitOffset = 7 - (gConfigs[ConfigIndex].BufferIndex % 8);
   uint8_t *TempPointer = (uint8_t *)(&(gTemperatures[gConfigs[ConfigIndex].Sections[gConfigs[ConfigIndex].SectionIndex].TemperatureIndex]));
@@ -100,7 +77,7 @@ uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
   TempPointer = (uint8_t *)(&gColorCorrection);
   uint8_t CorrectionValue = (*(uint8_t *)(TempPointer + ColorOffset));
   uint32_t ColorByte = *(((uint8_t *)&gConfigs[ConfigIndex].Sections[gConfigs[ConfigIndex].SectionIndex].Color) + ColorOffset);
-  ColorByte = (ColorByte * (uint32_t)(TemperatureValue * BRIGHTNESS * CorrectionValue));
+  ColorByte = (ColorByte * (uint32_t)(TemperatureValue * gConfigs[ConfigIndex].Brightness * CorrectionValue));
   ColorByte = ColorByte / ((uint32_t)(255 * 255 * 255));
   return PwmValue[(ColorByte >> ColorBitOffset) & 1];
 }
@@ -253,99 +230,3 @@ COLOR_HSV RgbToHsv(COLOR_RGB rgb) {
 
   return hsv;
 }
-
-#ifdef TAK
-
-void CheckValues(uint8_t LedsAmount, COLOR_RGB* LedColors, uint16_t* Buffer) {
-  uint8_t LedIndex;
-  int8_t BitIndex;
-  uint8_t Index;
-  const uint8_t ColorTable[] = {0, 1};
-  uint8_t ExpectedColor;
-  uint8_t ActualColor;
-  uint8_t ExpectedBufferIndex;
-  uint8_t ActualBufferIndex;
-  uint8_t *Colors = (uint8_t*)(LedColors);
-  uint8_t Failed = 0;
-
-  for (LedIndex = 0; LedIndex < LedsAmount; LedIndex++) {
-    for (Index = 0; Index < 3; Index++) {
-      for (BitIndex = 7; BitIndex >= 0; BitIndex--) {
-        ExpectedBufferIndex = LedIndex * 3 + Index;
-        ActualBufferIndex = (LedIndex * 3 * 8) + (Index * 8) + BitIndex;
-        ExpectedColor = ColorTable[((Colors[ExpectedBufferIndex] >> (7 - BitIndex)) & 0x1)];
-        ActualColor = Buffer[ActualBufferIndex];
-        if (ExpectedColor != ActualColor) {
-          Failed = 1;
-          PRINT("Led[%d] Color[%d] Bit[%d] incorrect should be %d is %d Actual %d Expected %d\n", LedIndex, Index, BitIndex, ExpectedColor , ActualColor, ActualBufferIndex, ExpectedBufferIndex);
-        }
-      }
-    }
-  }
-  assert(Failed == 0);
-}
-
-int main() {
-  uint16_t Buffer1[24 * 8];
-  InitializeConfigs(1);
-  uint8_t leds[] = {10, 12, 14, 16};
-  InitializeConfig(0, 4, leds, Buffer1, 8 * 24);
-  COLOR_RGB tak = {150, 160, 170};
-  COLOR_RGB tak1 = {150, 160, 170};
-  COLOR_RGB tak2 = {10, 20, 30};
-  COLOR_RGB tak3 = {12, 18, 15};
-  COLOR_RGB zero = {0, 0, 0};
-  GetLedSection(0, 0)->Color = tak;
-  GetLedSection(0, 1)->Color = tak1;
-  GetLedSection(0, 2)->Color = tak2;
-  GetLedSection(0, 3)->Color = tak3;
-  PrepareBufferForTransaction(0);
-  COLOR_RGB LedColors1[8] = {tak, tak, tak, tak, tak, tak, tak, tak};
-  CheckValues (8, LedColors1, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors2[8] = {tak, tak, tak1, tak1, tak, tak, tak, tak};
-  CheckValues (8, LedColors2, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors3[8] = {tak, tak, tak1, tak1, tak1, tak1, tak1, tak1};
-  CheckValues (8, LedColors3, Buffer1);
-
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors4[8] = {tak1, tak1, tak1, tak1, tak1, tak1, tak1, tak1};
-  CheckValues (8, LedColors4, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors5[8] = {tak1, tak1, tak1, tak1, tak1, tak1, tak2, tak2};
-  CheckValues (8, LedColors5, Buffer1);
-
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors6[8] = {tak2, tak2, tak2, tak2, tak1, tak1, tak2, tak2};
-  CheckValues (8, LedColors6, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors7[8] = {tak2, tak2, tak2, tak2, tak2, tak2, tak2, tak2};
-  CheckValues (8, LedColors7, Buffer1);
-
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors8[8] = {tak2, tak2, tak2, tak2, tak2, tak2, tak2, tak2};
-  CheckValues (8, LedColors8, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors9[8] = {tak2, tak2, tak2, tak2, tak3, tak3, tak3, tak3};
-  CheckValues (8, LedColors9, Buffer1);
-
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors10[8] = {tak3, tak3, tak3, tak3, tak3, tak3, tak3, tak3};
-  CheckValues (8, LedColors10, Buffer1);
-  PRINT("End value: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors11[8] = {tak3, tak3, tak3, tak3, tak3, tak3, tak3, tak3};
-  CheckValues (8, LedColors11, Buffer1);
-
-  PRINT("End value 12: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors12[8] = {tak3, tak3, tak3, tak3, tak3, tak3, tak3, tak3};
-  CheckValues (8, LedColors12, Buffer1);
-  PRINT("End value 13: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors13[8] = {tak3, tak3, tak3, tak3, zero, zero, zero, zero};
-  CheckValues (8, LedColors13, Buffer1);
-  PRINT("End value 14: %d\n", FillHalfBuffer(0));
-  COLOR_RGB LedColors14[8] = {zero, zero, zero, zero, zero, zero, zero, zero};
-  CheckValues (8, LedColors14, Buffer1);
-}
-
-#endif

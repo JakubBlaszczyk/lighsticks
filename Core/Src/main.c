@@ -21,6 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Leds.h"
+#include <stdint.h>
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -31,12 +34,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define LED_AMOUNT 18
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
+#define SIZE_OF(Array) sizeof(Array)/sizeof(Array[0])
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -47,7 +52,7 @@ DMA_HandleTypeDef hdma_tim1_ch1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-
+uint16_t gLedBuffer[24 * LED_AMOUNT];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,12 +63,19 @@ static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void StartLedsDma(void);
+static void SendUartBlockingMessage(const char*);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void StartLedsDma(void) {
+  HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, gLedBuffer, SIZE_OF (gLedBuffer));
+}
 
+static void SendUartBlockingMessage(const char* message) {
+  HAL_UART_Transmit(&huart1, message, (uint16_t)strlen(message), 100);
+}
 /* USER CODE END 0 */
 
 /**
@@ -99,7 +111,19 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  InitializeConfigs(1);
+  InitializeConfig(0, LED_AMOUNT, NULL, gLedBuffer, SIZE_OF(gLedBuffer));
+  for (uint8_t Index = 0; Index < LED_AMOUNT; Index++) {
+    GetLedSection(0, Index)->Color = (COLOR_RGB){206,134,203};
+  }
+  PrepareBufferForTransaction(0);
+  StartLedsDma();
 
+  SendUartBlockingMessage("STM started and is working\r\n");
+
+  HAL_Delay(1000);
+  HAL_PWR_EnableSleepOnExit();
+  HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   /* USER CODE END 2 */
 
   /* Infinite loop */
