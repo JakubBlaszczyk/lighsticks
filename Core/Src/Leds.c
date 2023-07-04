@@ -69,7 +69,7 @@ LED_SECTION *GetLedSection(const uint8_t ConfigIndex, const uint8_t SectionIndex
 }
 
 uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
-  static uint8_t PwmValue[2] = {30, 60};
+  static uint8_t PwmValue[2] = {27, 53};
   uint8_t ColorOffset = (gConfigs[ConfigIndex].BufferIndex % 24) / 8;
   uint8_t ColorBitOffset = 7 - (gConfigs[ConfigIndex].BufferIndex % 8);
   uint8_t *TempPointer = (uint8_t *)(&(gTemperatures[gConfigs[ConfigIndex].Sections[gConfigs[ConfigIndex].SectionIndex].TemperatureIndex]));
