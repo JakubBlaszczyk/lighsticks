@@ -68,7 +68,7 @@ LED_SECTION *GetLedSection(const uint8_t ConfigIndex, const uint8_t SectionIndex
   return &gConfigs[ConfigIndex].Sections[SectionIndex];
 }
 
-uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
+static uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
   static uint8_t PwmValue[2] = {27, 53};
   uint8_t ColorOffset = (gConfigs[ConfigIndex].BufferIndex % 24) / 8;
   uint8_t ColorBitOffset = 7 - (gConfigs[ConfigIndex].BufferIndex % 8);
@@ -134,13 +134,20 @@ uint8_t PrepareBufferForTransaction(uint8_t ConfigIndex) {
   return ReturnValue;
 }
 
+void ShowEffectHueue(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep) {
+  uint8_t SectionIndex;
+    for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+      gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb ((COLOR_HSV){gHue + SectionIndex * ColorStep, 255, 255});
+    }
+    gHue += HueStep;
+}
+
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep) {
   uint8_t SectionIndex;
     for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
       gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb ((COLOR_HSV){gHue + SectionIndex * ColorStep, 255, 255});
     }
     gHue += HueStep;
-    PrepareBufferForTransaction(0);
 }
 
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step) {
@@ -155,7 +162,6 @@ void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step) {
     }
     gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb(HsvColor);
   }
-  PrepareBufferForTransaction(0);
 }
 
 COLOR_RGB HsvToRgb(COLOR_HSV hsv) {

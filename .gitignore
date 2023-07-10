@@ -8,3 +8,4 @@ Debug/
 Release/
 Startup
 .vscode/
+*.exe

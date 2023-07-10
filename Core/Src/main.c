@@ -62,7 +62,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint16_t gLedBuffer[24 * LED_AMOUNT];
+uint16_t gLedBuffer[24 * (LED_AMOUNT + 4)];
 uint8_t gPinState[2] = {0, 0};
 uint8_t gPinHoldTime[2] = {0, 0};
 COLOR_RGB gPallete[] = {{255, 255, 255}};
@@ -90,6 +90,67 @@ static void ShowEffectRainbowWrapper(void) {
   ShowEffectRainbow(0, 6, 2);
 }
 
+static uint8_t LerpHSV (uint8_t a, uint8_t b, uint8_t t) {
+  float tempa = (float)(a) / 255;
+  float tempt = (float)(t) / 255;
+  float tempb = (float)(b) / 255;
+
+  float tempd = (float)(b - a) / 255;
+  float h;
+  uint8_t hue;
+
+  if (tempa > tempb) {
+    float temp = tempa;
+    tempa = tempb;
+    tempb = temp;
+    tempd = -tempd;
+    tempt = 1 - tempt;
+  }
+
+  if (tempd > 0.5) {
+    tempa = tempa + 1;
+    h = (tempa + tempt * (tempb - tempa)); // 360deg
+    while (h > 1.0) {
+      h -= 1.0;
+    }
+    while (h < -1.0) {
+      h += 1.0;
+    }
+  } else if (tempd <= 0.5) {
+    h = tempa + tempt * tempd;
+  }
+   hue = h * 255;
+  return hue;
+}
+
+typedef struct {
+  uint8_t Angle;
+  COLOR_RGB Rgb;
+} PALLETE;
+
+PALLETE gRandomPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
+
+COLOR_RGB GetColorFromPallete (uint8_t Angle, PALLETE *Pallete, uint8_t PalleteSize) {
+  uint8_t Index;
+  uint8_t Found = 0;
+  for (Index = 0; Index < PalleteSize - 1; Index++) {
+    if (Angle >= Pallete[Index].Angle && Angle < Pallete[Index + 1].Angle) {
+      Found = 1;
+      break;
+    }
+  }
+
+  if (Found) {
+    uint8_t a = RgbToHsv(Pallete[Index].Rgb).h;
+    uint8_t b = RgbToHsv(Pallete[Index+1].Rgb).h;
+    uint8_t t = (Angle - Pallete[Index].Angle) * (255 / (Pallete[Index + 1].Angle - Pallete[Index].Angle));
+    return HsvToRgb((COLOR_HSV){LerpHSV (a, b, t), 255, 255});
+  } else {
+    return Pallete[Index].Rgb;
+  }
+}
+
+// TODO, rainbow with hsv from pallete and use global huehue as initial value
 void (*gEffects[])(void) = {ShowEffectRainbowWrapper};
 
 void UpdatePalleteIndex(uint8_t GpioIndex) {
@@ -216,6 +277,7 @@ int main(void)
   StartLedsDma();
 
   SendUartBlockingMessage("STM started\r\n");
+  HAL_TIM_Base_Start_IT(&htim2);
 
   HAL_Delay(1000);
   HAL_PWR_EnableSleepOnExit();
