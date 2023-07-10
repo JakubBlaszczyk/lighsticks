@@ -17,6 +17,8 @@ typedef struct
 #define TEMPERATURE_COOLWHITEFLUORESCENT 3
 #define TEMPERATURE_FULLSPECTRUMFLUORESCENT 4
 
+#define RAND_THRESHOLD (RAND_MAX - 30)
+
 void InitializeConfigs(uint8_t AmountOfConfigs);
 uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const uint8_t *LedCounts, uint16_t *Buffer, uint16_t BufferSize);
 LED_SECTION *GetLedSection(const uint8_t ConfigIndex, const uint8_t SectionIndex);
@@ -24,5 +26,8 @@ uint8_t FillHalfBuffer(const uint8_t ConfigIndex);
 uint8_t PrepareBufferForTransaction(const uint8_t ConfigIndex);
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep);
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step);
+void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex);
+void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex);
+void ShowEffectGlitter(uint8_t ConfigIndex);
 
 #endif // _LEDS_

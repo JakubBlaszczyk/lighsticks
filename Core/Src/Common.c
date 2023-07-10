@@ -72,4 +72,3 @@ COLOR_HSV RgbToHsv(COLOR_GRB rgb) {
 
   return hsv;
 }
-

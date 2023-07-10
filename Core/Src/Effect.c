@@ -6,10 +6,11 @@
 static PALLETE gBasicPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
 static PALLETE_ARRAY gPalletes[] = {{gBasicPallete, LENGTH_OF (gBasicPallete)}};
 
-COLOR_GRB GetColorFromPallete (uint8_t Angle, PALLETE *Pallete, uint8_t PalleteSize) {
+COLOR_GRB GetColorFromPalleteSmooth (uint8_t Angle, uint8_t PalleteArrayIndex) {
   uint8_t Index;
   uint8_t Found = 0;
-  for (Index = 0; Index < PalleteSize - 1; Index++) {
+  PALLETE *Pallete = gPalletes[PalleteArrayIndex].Pallete;
+  for (Index = 0; Index < gPalletes[PalleteArrayIndex].Length - 1; Index++) {
     if (Angle >= Pallete[Index].Angle && Angle < Pallete[Index + 1].Angle) {
       Found = 1;
       break;
@@ -24,6 +25,18 @@ COLOR_GRB GetColorFromPallete (uint8_t Angle, PALLETE *Pallete, uint8_t PalleteS
   } else {
     return Pallete[Index].Rgb;
   }
+}
+
+COLOR_GRB GetColorFromPalleteSolid (uint8_t Angle, uint8_t PalleteArrayIndex) {
+  uint8_t Index;
+  PALLETE *Pallete = gPalletes[PalleteArrayIndex].Pallete;
+  for (Index = 0; Index < gPalletes[PalleteArrayIndex].Length - 1; Index++) {
+    if (Angle >= Pallete[Index].Angle && Angle < Pallete[Index + 1].Angle) {
+      break;
+    }
+  }
+
+  return Pallete[Index].Rgb;
 }
 
 uint8_t LerpHSV (uint8_t a, uint8_t b, uint8_t t) {

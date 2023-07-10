@@ -14,7 +14,8 @@ typedef struct {
   uint8_t Length;
 } PALLETE_ARRAY;
 
-COLOR_GRB GetColorFromPallete (uint8_t Angle, PALLETE *Pallete, uint8_t PalleteSize);
+COLOR_GRB GetColorFromPalleteSmooth (uint8_t Angle, uint8_t PalleteArrayIndex);
+COLOR_GRB GetColorFromPalleteSolid (uint8_t Angle, uint8_t PalleteArrayIndex);
 uint8_t LerpHSV (uint8_t a, uint8_t b, uint8_t t);
 
 

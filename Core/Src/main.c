@@ -25,6 +25,7 @@
 #include "Effect.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,6 +95,10 @@ static void ShowEffectRainbowWrapper(void) {
   ShowEffectRainbow(0, 6, 2);
 }
 
+static void ShowEffectPalleteSmoothTransitionWrapper(void) {
+  ShowEffectPalleteSmoothTransition(0, 2, 0);
+}
+
 void UpdatePalleteIndex(uint8_t Increase) {
   if (Increase) {
     gSolidColorPalleteIndex++;
@@ -105,7 +110,7 @@ void UpdatePalleteIndex(uint8_t Increase) {
 }
 
 // TODO, rainbow with hsv from pallete and use global huehue as initial value
-void (*gEffects[])(void) = {ShowEffectRainbowWrapper};
+void (*gEffects[])(void) = {ShowEffectRainbowWrapper, ShowEffectPalleteSmoothTransitionWrapper};
 
 void UpdateEffectsIndex(uint8_t GpioIndex) {
   if (GpioIndex == 0) {
@@ -140,7 +145,7 @@ void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
   gPinState[GpioIndex] = GpioPinCurrentState;
 }
 
-// TODO
+// TODO, how to update leds, based on what?
 void UpdateLeds() {
   uint8_t Index;
 
@@ -212,6 +217,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
+  srand(69);
   InitializeConfigs(1);
   InitializeConfig(0, LED_AMOUNT, NULL, gLedBuffer, LENGTH_OF(gLedBuffer));
   for (uint8_t Index = 0; Index < LED_AMOUNT; Index++) {

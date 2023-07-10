@@ -6,6 +6,7 @@
 
 #include "Common.h"
 #include "Leds.h"
+#include "Effect.h"
 
 static const COLOR_GRB gTemperatures[] = {{255, 255, 255}, {147, 255, 41}, {241, 255, 224}, {235, 212, 255}, {244, 255, 242}};
 static const COLOR_GRB gColorCorrection = {176, 255, 240};
@@ -113,7 +114,7 @@ uint8_t FillHalfBuffer(const uint8_t ConfigIndex) {
 
   if (BufferFilled != BufferToBeFilled) {
     for (; BufferFilled < BufferToBeFilled; BufferFilled++, gConfigs[ConfigIndex].BufferIndex++) {
-      gConfigs[ConfigIndex].Buffer[gConfigs[ConfigIndex].BufferIndex] = 0;      
+      gConfigs[ConfigIndex].Buffer[gConfigs[ConfigIndex].BufferIndex] = 0;
     }
 
     ReturnValue = 1;
@@ -135,20 +136,28 @@ uint8_t PrepareBufferForTransaction(uint8_t ConfigIndex) {
   return ReturnValue;
 }
 
-void ShowEffectHueue(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep) {
+void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex) {
   uint8_t SectionIndex;
-    for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
-      gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb ((COLOR_HSV){gHue + SectionIndex * ColorStep, 255, 255});
-    }
-    gHue += HueStep;
+  for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSmooth (gHue, PalleteIndex);
+  }
+  gHue += HueStep;
+}
+
+void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex) {
+  uint8_t SectionIndex;
+  for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSolid (gHue, PalleteIndex);
+  }
+  gHue += HueStep;
 }
 
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep) {
   uint8_t SectionIndex;
-    for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
-      gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb ((COLOR_HSV){gHue + SectionIndex * ColorStep, 255, 255});
-    }
-    gHue += HueStep;
+  for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb ((COLOR_HSV){gHue + SectionIndex * ColorStep, 255, 255});
+  }
+  gHue += HueStep;
 }
 
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step) {
@@ -162,5 +171,14 @@ void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step) {
       HsvColor.v -= HsvColor.v;
     }
     gConfigs[ConfigIndex].Sections[SectionIndex].Color = HsvToRgb(HsvColor);
+  }
+}
+
+void ShowEffectGlitter(uint8_t ConfigIndex) {
+  uint8_t SectionIndex;
+  for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+    if (rand() > RAND_THRESHOLD) {
+      gConfigs[ConfigIndex].Sections[SectionIndex].Color = (COLOR_GRB){255, 255, 255};
+    }
   }
 }
