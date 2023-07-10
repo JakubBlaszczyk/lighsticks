@@ -1,26 +1,15 @@
 #ifndef _LEDS_
 #define _LEDS_
 
-typedef struct
-{
-  uint8_t Green;
-  uint8_t Red;
-  uint8_t Blue;
-} COLOR_RGB;
+#include "Common.h"
+#include <stdint.h>
 
 typedef struct
 {
   uint8_t LedCount;
-  COLOR_RGB Color;
+  COLOR_GRB Color;
   uint8_t TemperatureIndex;
 } LED_SECTION;
-
-typedef struct COLOR_HSV
-{
-  uint8_t h;
-  uint8_t s;
-  uint8_t v;
-} COLOR_HSV;
 
 #define TEMPERATURE_UNCORRECTED 0
 #define TEMPERATURE_CANDLE 1
@@ -35,7 +24,5 @@ uint8_t FillHalfBuffer(const uint8_t ConfigIndex);
 uint8_t PrepareBufferForTransaction(const uint8_t ConfigIndex);
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep);
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step);
-COLOR_RGB HsvToRgb(COLOR_HSV hsv);
-COLOR_HSV RgbToHsv(COLOR_RGB rgb);
 
 #endif // _LEDS_
