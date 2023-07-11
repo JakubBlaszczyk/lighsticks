@@ -59,6 +59,7 @@ uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const ui
       gConfigs[ConfigIndex].Sections[Index].LedCount = LedCounts[Index];
     }
   }
+  gConfigs[ConfigIndex].Brightness = 20;
   gConfigs[ConfigIndex].SectionsSize = AmountOfSections;
   gConfigs[ConfigIndex].BufferSize = BufferSize;
   gConfigs[ConfigIndex].Buffer = Buffer;
@@ -79,7 +80,7 @@ static uint8_t GetPwmValueFromColor(const uint8_t ConfigIndex) {
   TempPointer = (uint8_t *)(&gColorCorrection);
   uint8_t CorrectionValue = (*(uint8_t *)(TempPointer + ColorOffset));
   uint32_t ColorByte = *(((uint8_t *)&gConfigs[ConfigIndex].Sections[gConfigs[ConfigIndex].SectionIndex].Color) + ColorOffset);
-  ColorByte = (ColorByte * (uint32_t)(TemperatureValue * gConfigs[ConfigIndex].Brightness * CorrectionValue));
+  ColorByte = (ColorByte * ((uint32_t)TemperatureValue * (uint32_t)gConfigs[ConfigIndex].Brightness * (uint32_t)CorrectionValue));
   ColorByte = ColorByte / ((uint32_t)(255 * 255 * 255));
   return PwmValue[(ColorByte >> ColorBitOffset) & 1];
 }
@@ -134,6 +135,13 @@ uint8_t PrepareBufferForTransaction(uint8_t ConfigIndex) {
   ReturnValue = FillHalfBuffer(ConfigIndex);
   ReturnValue = FillHalfBuffer(ConfigIndex);
   return ReturnValue;
+}
+
+void TurnOffLeds(uint8_t ConfigIndex) {
+  uint8_t SectionIndex;
+  for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = (COLOR_GRB){0, 0, 0};
+  }
 }
 
 void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {

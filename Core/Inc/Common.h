@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define LENGTH_OF(Array) sizeof(Array)/sizeof(Array[0])
+#define LENGTH_OF(Array) (uint8_t)(sizeof(Array)/sizeof(Array[0]))
 
 typedef struct
 {

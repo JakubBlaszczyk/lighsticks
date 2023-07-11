@@ -65,6 +65,7 @@ uint8_t LerpHSV (uint8_t a, uint8_t b, uint8_t t) {
   } else if (tempd <= 0.5) {
     h = tempa + tempt * tempd;
   }
-   hue = h * 255;
+
+  hue = h * 255;
   return hue;
 }

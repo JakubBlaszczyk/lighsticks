@@ -24,6 +24,7 @@ uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const ui
 LED_SECTION *GetLedSection(const uint8_t ConfigIndex, const uint8_t SectionIndex);
 uint8_t FillHalfBuffer(const uint8_t ConfigIndex);
 uint8_t PrepareBufferForTransaction(const uint8_t ConfigIndex);
+void TurnOffLeds(uint8_t ConfigIndex);
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep);
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step);
 void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete);

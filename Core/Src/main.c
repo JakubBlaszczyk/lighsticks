@@ -46,7 +46,7 @@
 #define IWDG_TIMEOUT 1638 // ms
 #define RESET_HOLD_TIME (uint8_t)(IWDG_TIMEOUT / 16.65)
 #define MINIMAL_HOLD_TIME (uint8_t)(400 / 16.65)
-#define MINIMAL_CLICK_TIME (uint8_t)(90 / 16.65)
+#define MINIMAL_CLICK_TIME (uint8_t)(40 / 16.65)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,16 +66,18 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint16_t gLedBuffer[24 * (LED_AMOUNT + 4)];
 uint8_t gPinState[2] = {0, 0};
-uint8_t gPinHoldTime[2] = {0, 0};
-static PALLETE gRedSolidPallete[] = {{0, {0, 255, 0}}};
-static PALLETE gGreenSolidPallete[] = {{0, {0, 255, 0}}};
+uint16_t gPinHoldTime[2] = {0, 0};
+static PALLETE gRedSolidPallete[] = {{0, {0, 0, 255}}};
+static PALLETE gGreenSolidPallete[] = {{0, {255, 0, 0}}};
 static PALLETE gBlueSolidPallete[] = {{0, {0, 255, 0}}};
 // static PALLETE gBasicPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
 static PALLETE_ARRAY gSolidPalletes[] = {{gRedSolidPallete, 1}, {gGreenSolidPallete, 1}, {gBlueSolidPallete, 1}};
+static const uint8_t gSolidPalleteSize = LENGTH_OF (gSolidPalletes);
+static const uint8_t gLedBufferSize = LENGTH_OF (gLedBuffer);
 // static PALLETE_ARRAY gPalletes[] = {{gBasicPallete, LENGTH_OF (gBasicPallete)}};
-uint8_t gEffectsIndex = 0;
+static uint8_t gEffectsIndex = 0;
 static uint8_t gPalleteIndex = 0;
-
+static uint8_t TurnOff = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,12 +101,15 @@ static void ShowEffectRainbowWrapper(void) {
 }
 
 static void ShowEffectPalleteSmoothTransitionWrapper(void) {
-  ShowEffectPalleteSmoothTransition(0, 2, &gSolidPalletes[gPalleteIndex % LENGTH_OF (gSolidPalletes)]);
+  ShowEffectPalleteSmoothTransition(0, 2, &gSolidPalletes[gPalleteIndex % gSolidPalleteSize]);
 }
 
 static void ShowEffectPalleteInstantTransitionWrapper(void) {
-  ShowEffectPalleteInstantTransition(0, 2, &gSolidPalletes[gPalleteIndex % LENGTH_OF (gSolidPalletes)]);
+  ShowEffectPalleteInstantTransition(0, 2, &gSolidPalletes[gPalleteIndex % gSolidPalleteSize]);
 }
+
+static void (*gEffects[])(void) = {ShowEffectPalleteInstantTransitionWrapper, ShowEffectRainbowWrapper, ShowEffectPalleteSmoothTransitionWrapper};
+static const uint8_t gEffectsSize = LENGTH_OF (gEffects);
 
 static void UpdatePalleteIndex(uint8_t Increase) {
   if (Increase) {
@@ -114,35 +119,33 @@ static void UpdatePalleteIndex(uint8_t Increase) {
   }
 }
 
-static void (*gEffects[])(void) = {ShowEffectRainbowWrapper, ShowEffectPalleteInstantTransitionWrapper, ShowEffectPalleteSmoothTransitionWrapper};
-
-static void UpdateEffectsIndex(uint8_t GpioIndex) {
-  if (GpioIndex == 0) {
-    gEffectsIndex--;
-  } else {
+static void UpdateEffectsIndex(uint8_t Increase) {
+  if (Increase) {
     gEffectsIndex++;
+  } else {
+    gEffectsIndex--;
   }
-
-  gEffectsIndex %= LENGTH_OF(gEffects);
 }
 
 static void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
   uint8_t GpioPinCurrentState = HAL_GPIO_ReadPin(GPIOA, GpioPin);
   if (GpioPinCurrentState != gPinState[GpioIndex]) {
     if (gPinState[GpioIndex] == BUTTON_PRESSED) {
-      // Rising edge - held
-      if (gPinHoldTime[GpioIndex] >= RESET_HOLD_TIME) {
-        HAL_PWR_EnterSTANDBYMode();
-      } else if (gPinHoldTime[GpioIndex] < RESET_HOLD_TIME && gPinHoldTime[GpioIndex] >= MINIMAL_HOLD_TIME) {
+      if (gPinHoldTime[GpioIndex] < RESET_HOLD_TIME && gPinHoldTime[GpioIndex] >= MINIMAL_HOLD_TIME) {
         UpdateEffectsIndex(GpioIndex);
       } else if (gPinHoldTime[GpioIndex] < MINIMAL_HOLD_TIME && gPinHoldTime[GpioIndex] >= MINIMAL_CLICK_TIME) {
         UpdatePalleteIndex(GpioIndex);
       }
     } else if (gPinState[GpioIndex] == BUTTON_NOT_PRESSED) {
-      // Falling edge
+      if (gPinHoldTime[GpioIndex] >= RESET_HOLD_TIME) {
+        HAL_PWR_EnterSTANDBYMode();
+      }
       gPinHoldTime[GpioIndex] = 0;
     }
   } else if (GpioPinCurrentState == BUTTON_PRESSED) {
+    if (gPinHoldTime[GpioIndex] >= RESET_HOLD_TIME) {
+      TurnOff = 1;
+    }
     gPinHoldTime[GpioIndex]++;
   }
 
@@ -150,9 +153,21 @@ static void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
 }
 
 static void UpdateLeds() {
-  gEffects[gEffectsIndex % LENGTH_OF (gEffects)]();
-  PrepareBufferForTransaction(0);
-  StartLedsDma();
+  if (hdma_tim1_ch1.State == HAL_DMA_STATE_READY) {
+    if (TurnOff) {
+      TurnOffLeds(0);
+    } else {
+      gEffects[gEffectsIndex % gEffectsSize]();
+    }
+    PrepareBufferForTransaction(0);
+    StartLedsDma();
+  }
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
+  if (htim == &htim1) {
+    HAL_TIM_PWM_Stop_DMA (&htim1, TIM_CHANNEL_1);
+  }
 }
 
 // single click - change color
@@ -168,11 +183,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 }
 
 static void StartLedsDma(void) {
-  HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*)gLedBuffer, LENGTH_OF (gLedBuffer));
+  HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*)gLedBuffer, gLedBufferSize);
 }
 
 static void SendUartBlockingMessage(const char* message) {
-  HAL_UART_Transmit(&huart1, (uint8_t*)message, (uint16_t)strlen(message), 100);
+  HAL_UART_Transmit(&huart2, (uint8_t*)message, (uint16_t)strlen(message), 100);
 }
 /* USER CODE END 0 */
 
@@ -218,17 +233,16 @@ int main(void)
   /* USER CODE BEGIN 2 */
   srand(69);
   InitializeConfigs(1);
-  InitializeConfig(0, LED_AMOUNT, NULL, gLedBuffer, LENGTH_OF(gLedBuffer));
+  InitializeConfig(0, LED_AMOUNT, NULL, gLedBuffer, gLedBufferSize);
   for (uint8_t Index = 0; Index < LED_AMOUNT; Index++) {
-    GetLedSection(0, Index)->Color = (COLOR_GRB){206,134,203};
+    GetLedSection(0, Index)->Color = (COLOR_GRB){255,255,255};
   }
   PrepareBufferForTransaction(0);
+  SendUartBlockingMessage("STM initialized\r\n");
   StartLedsDma();
-
+  HAL_Delay(1000);
   SendUartBlockingMessage("STM started\r\n");
   HAL_TIM_Base_Start_IT(&htim2);
-
-  HAL_Delay(1000);
   HAL_PWR_EnableSleepOnExit();
   HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   /* USER CODE END 2 */
@@ -409,7 +423,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 53332;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
