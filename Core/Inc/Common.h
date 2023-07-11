@@ -19,6 +19,16 @@ typedef struct
   uint8_t v;
 } COLOR_HSV;
 
+typedef struct {
+  uint8_t Angle;
+  COLOR_GRB Rgb;
+} PALLETE;
+
+typedef struct {
+  PALLETE *Pallete;
+  uint8_t Length;
+} PALLETE_ARRAY;
+
 COLOR_GRB HsvToRgb(COLOR_HSV hsv);
 COLOR_HSV RgbToHsv(COLOR_GRB rgb);
 

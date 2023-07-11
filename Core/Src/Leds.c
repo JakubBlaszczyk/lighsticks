@@ -136,18 +136,18 @@ uint8_t PrepareBufferForTransaction(uint8_t ConfigIndex) {
   return ReturnValue;
 }
 
-void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex) {
+void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {
   uint8_t SectionIndex;
   for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
-    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSmooth (gHue, PalleteIndex);
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSmooth (gHue, Pallete);
   }
   gHue += HueStep;
 }
 
-void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex) {
+void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {
   uint8_t SectionIndex;
   for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
-    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSolid (gHue, PalleteIndex);
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSolid (gHue, Pallete);
   }
   gHue += HueStep;
 }

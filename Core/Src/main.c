@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Common.h"
 #include "Leds.h"
 #include "Effect.h"
 #include <stdint.h>
@@ -66,12 +67,14 @@ UART_HandleTypeDef huart2;
 uint16_t gLedBuffer[24 * (LED_AMOUNT + 4)];
 uint8_t gPinState[2] = {0, 0};
 uint8_t gPinHoldTime[2] = {0, 0};
-COLOR_GRB gPallete[] = {{255, 255, 255}};
-static uint8_t gSolidColorPalleteIndex = 0;
+static PALLETE gRedSolidPallete[] = {{0, {0, 255, 0}}};
+static PALLETE gGreenSolidPallete[] = {{0, {0, 255, 0}}};
+static PALLETE gBlueSolidPallete[] = {{0, {0, 255, 0}}};
+// static PALLETE gBasicPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
+static PALLETE_ARRAY gSolidPalletes[] = {{gRedSolidPallete, 1}, {gGreenSolidPallete, 1}, {gBlueSolidPallete, 1}};
+// static PALLETE_ARRAY gPalletes[] = {{gBasicPallete, LENGTH_OF (gBasicPallete)}};
 uint8_t gEffectsIndex = 0;
 static uint8_t gPalleteIndex = 0;
-
-static COLOR_GRB gSolidColorPallete[] = {{255, 255, 255}};
 
 /* USER CODE END PV */
 
@@ -96,23 +99,24 @@ static void ShowEffectRainbowWrapper(void) {
 }
 
 static void ShowEffectPalleteSmoothTransitionWrapper(void) {
-  ShowEffectPalleteSmoothTransition(0, 2, 0);
+  ShowEffectPalleteSmoothTransition(0, 2, &gSolidPalletes[gPalleteIndex % LENGTH_OF (gSolidPalletes)]);
 }
 
-void UpdatePalleteIndex(uint8_t Increase) {
+static void ShowEffectPalleteInstantTransitionWrapper(void) {
+  ShowEffectPalleteInstantTransition(0, 2, &gSolidPalletes[gPalleteIndex % LENGTH_OF (gSolidPalletes)]);
+}
+
+static void UpdatePalleteIndex(uint8_t Increase) {
   if (Increase) {
-    gSolidColorPalleteIndex++;
+    gPalleteIndex++;
   } else {
-    gSolidColorPalleteIndex--;
+    gPalleteIndex--;
   }
-
-  gSolidColorPalleteIndex %= LENGTH_OF(gSolidColorPallete);
 }
 
-// TODO, rainbow with hsv from pallete and use global huehue as initial value
-void (*gEffects[])(void) = {ShowEffectRainbowWrapper, ShowEffectPalleteSmoothTransitionWrapper};
+static void (*gEffects[])(void) = {ShowEffectRainbowWrapper, ShowEffectPalleteInstantTransitionWrapper, ShowEffectPalleteSmoothTransitionWrapper};
 
-void UpdateEffectsIndex(uint8_t GpioIndex) {
+static void UpdateEffectsIndex(uint8_t GpioIndex) {
   if (GpioIndex == 0) {
     gEffectsIndex--;
   } else {
@@ -122,7 +126,7 @@ void UpdateEffectsIndex(uint8_t GpioIndex) {
   gEffectsIndex %= LENGTH_OF(gEffects);
 }
 
-void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
+static void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
   uint8_t GpioPinCurrentState = HAL_GPIO_ReadPin(GPIOA, GpioPin);
   if (GpioPinCurrentState != gPinState[GpioIndex]) {
     if (gPinState[GpioIndex] == BUTTON_PRESSED) {
@@ -145,13 +149,8 @@ void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
   gPinState[GpioIndex] = GpioPinCurrentState;
 }
 
-// TODO, how to update leds, based on what?
-void UpdateLeds() {
-  uint8_t Index;
-
-  for (Index = 0; Index < LED_AMOUNT; Index++) {
-    GetLedSection(0, Index)->Color = gPallete[gPalleteIndex];
-  }
+static void UpdateLeds() {
+  gEffects[gEffectsIndex % LENGTH_OF (gEffects)]();
   PrepareBufferForTransaction(0);
   StartLedsDma();
 }

@@ -26,8 +26,8 @@ uint8_t FillHalfBuffer(const uint8_t ConfigIndex);
 uint8_t PrepareBufferForTransaction(const uint8_t ConfigIndex);
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep);
 void ShowEffectFade(uint8_t ConfigIndex, uint8_t Step);
-void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex);
-void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, uint8_t PalleteIndex);
+void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete);
+void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete);
 void ShowEffectGlitter(uint8_t ConfigIndex);
 
 #endif // _LEDS_

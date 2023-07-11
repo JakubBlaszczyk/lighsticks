@@ -3,14 +3,11 @@
 #include "Common.h"
 #include "Effect.h"
 
-static PALLETE gBasicPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
-static PALLETE_ARRAY gPalletes[] = {{gBasicPallete, LENGTH_OF (gBasicPallete)}};
-
-COLOR_GRB GetColorFromPalleteSmooth (uint8_t Angle, uint8_t PalleteArrayIndex) {
+COLOR_GRB GetColorFromPalleteSmooth (uint8_t Angle, PALLETE_ARRAY *PalleteArray) {
   uint8_t Index;
   uint8_t Found = 0;
-  PALLETE *Pallete = gPalletes[PalleteArrayIndex].Pallete;
-  for (Index = 0; Index < gPalletes[PalleteArrayIndex].Length - 1; Index++) {
+  PALLETE *Pallete = PalleteArray->Pallete;
+  for (Index = 0; Index < PalleteArray->Length - 1; Index++) {
     if (Angle >= Pallete[Index].Angle && Angle < Pallete[Index + 1].Angle) {
       Found = 1;
       break;
@@ -27,10 +24,10 @@ COLOR_GRB GetColorFromPalleteSmooth (uint8_t Angle, uint8_t PalleteArrayIndex) {
   }
 }
 
-COLOR_GRB GetColorFromPalleteSolid (uint8_t Angle, uint8_t PalleteArrayIndex) {
+COLOR_GRB GetColorFromPalleteSolid (uint8_t Angle, PALLETE_ARRAY *PalleteArray) {
   uint8_t Index;
-  PALLETE *Pallete = gPalletes[PalleteArrayIndex].Pallete;
-  for (Index = 0; Index < gPalletes[PalleteArrayIndex].Length - 1; Index++) {
+  PALLETE *Pallete = PalleteArray->Pallete;
+  for (Index = 0; Index < PalleteArray->Length - 1; Index++) {
     if (Angle >= Pallete[Index].Angle && Angle < Pallete[Index + 1].Angle) {
       break;
     }
