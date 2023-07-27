@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,11 +37,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LED_AMOUNT 18
-#define GPIO_PIN_LEFT GPIO_PIN_10
+#define LED_AMOUNT 6
+#define GPIO_PIN_LEFT GPIO_PIN_13
 #define GPIO_PIN_INDEX_LEFT 0
-#define GPIO_PIN_RIGHT GPIO_PIN_11
-#define GPIO_PIN_INDEX_RIGHT 1
 #define BUTTON_PRESSED 0
 #define BUTTON_NOT_PRESSED 1
 #define IWDG_TIMEOUT 1638 // ms
@@ -58,22 +57,51 @@ IWDG_HandleTypeDef hiwdg;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+DMA_HandleTypeDef hdma_tim1_ch1;
 
-UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint16_t gLedBuffer[24 * (LED_AMOUNT + 4)];
 uint8_t gPinState[2] = {0, 0};
 uint16_t gPinHoldTime[2] = {0, 0};
-static PALLETE gRedSolidPallete[] = {{0, {0, 0, 255}}};
-static PALLETE gGreenSolidPallete[] = {{0, {255, 0, 0}}};
-static PALLETE gBlueSolidPallete[] = {{0, {0, 255, 0}}};
-// static PALLETE gBasicPallete[] = {{0, {255, 0, 0}}, {40, {0, 255, 0}}, {255, {255, 0, 0}}};
-static PALLETE_ARRAY gSolidPalletes[] = {{gRedSolidPallete, 1}, {gGreenSolidPallete, 1}, {gBlueSolidPallete, 1}};
-static const uint8_t gSolidPalleteSize = LENGTH_OF (gSolidPalletes);
+static const COLOR_GRB Miku = {212, 1, 59};
+static const COLOR_GRB Kaito = {9, 34, 255};
+static const COLOR_GRB Yellow = {229, 216, 0};
+static const COLOR_GRB Orange = {150, 255, 0};
+static const COLOR_GRB Red = {4, 189, 4};
+static const COLOR_GRB Luka = {105, 255, 180};
+static const COLOR_GRB Gumi = {255, 25, 25};
+static const COLOR_GRB White = {255, 255, 255};
+static const COLOR_GRB Ai = {0, 75, 130};
+static PALLETE gMikuSolidPallete[] = {{0, Miku}};
+static PALLETE gKaitoSolidPallete[] = {{0, Kaito}};
+static PALLETE gYellowSolidPallete[] = {{0, Yellow}};
+static PALLETE gOrangeSolidPallete[] = {{0, Orange}};
+static PALLETE gRedSolidPallete[] = {{0, Red}};
+static PALLETE gLukaSolidPallete[] = {{0, Luka}};
+static PALLETE gGumiSolidPallete[] = {{0, Gumi}};
+static PALLETE gWhiteSolidPallete[] = {{0, White}};
+static PALLETE gAiSolidPallete[] = {{0, Ai}};
+static PALLETE gRedTransitivePallete[] = {{0, Red}, {50, Miku}, {170, Kaito}, {255, Red}};
+static PALLETE gGreenTransitivePallete[] = {{0, Ai}, {128, White}, {255, Ai}};
+static PALLETE gBlueTransitivePallete[] = {{0, Miku}, {60, Miku}, {128, Luka}, {180, Luka}, {255, Miku}};
+static PALLETE_ARRAY gTransitivePalletes[] = {
+  {gGreenTransitivePallete, LENGTH_OF (gGreenTransitivePallete)},
+  {gBlueTransitivePallete, LENGTH_OF (gBlueTransitivePallete)},
+  {gRedTransitivePallete, LENGTH_OF (gRedTransitivePallete)}};
+static PALLETE_ARRAY gSolidPalletes[] = {
+                                        {gMikuSolidPallete, 1},
+                                        {gKaitoSolidPallete, 1},
+                                        {gYellowSolidPallete , 1},
+                                        {gOrangeSolidPallete, 1},
+                                        {gRedSolidPallete, 1},
+                                        {gLukaSolidPallete, 1},
+                                        {gGumiSolidPallete, 1},
+                                        {gWhiteSolidPallete, 1},
+                                        {gAiSolidPallete, 1}
+                                        };
 static const uint8_t gLedBufferSize = LENGTH_OF (gLedBuffer);
-// static PALLETE_ARRAY gPalletes[] = {{gBasicPallete, LENGTH_OF (gBasicPallete)}};
 static uint8_t gEffectsIndex = 0;
 static uint8_t gPalleteIndex = 0;
 static uint8_t TurnOff = 0;
@@ -82,10 +110,10 @@ static uint8_t TurnOff = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_USART1_UART_Init(void);
 static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 static void StartLedsDma(void);
@@ -99,18 +127,26 @@ static void ShowEffectRainbowWrapper(void) {
 }
 
 static void ShowEffectPalleteSmoothTransitionWrapper(void) {
-  ShowEffectPalleteSmoothTransition(0, 2, &gSolidPalletes[gPalleteIndex % gSolidPalleteSize]);
+  COLOR_GRB Color;
+  char message[40];
+  Color = ShowEffectPalleteSmoothTransition(0, 1, &gTransitivePalletes[gPalleteIndex % LENGTH_OF (gTransitivePalletes)]);
+  sprintf(message, "RGB: %d, %d, %d\r\n", Color.Red, Color.Green, Color.Blue);
+  SendUartBlockingMessage (message);
 }
 
 static void ShowEffectPalleteInstantTransitionWrapper(void) {
-  ShowEffectPalleteInstantTransition(0, 2, &gSolidPalletes[gPalleteIndex % gSolidPalleteSize]);
+  ShowEffectPalleteInstantTransition(0, 2, &gSolidPalletes[gPalleteIndex % LENGTH_OF (gSolidPalletes)]);
 }
 
-static void (*gEffects[])(void) = {ShowEffectPalleteInstantTransitionWrapper, ShowEffectRainbowWrapper, ShowEffectPalleteSmoothTransitionWrapper};
+static void ShowEffectBrightnessWrapper(void) {
+  ShowEffectBrightness(0, ((gPalleteIndex * 10) % 50) + MINIMAL_BRIGHTNESS);
+}
+
+static void (*gEffects[])(void) = {ShowEffectPalleteSmoothTransitionWrapper, ShowEffectRainbowWrapper, ShowEffectBrightnessWrapper};
 static const uint8_t gEffectsSize = LENGTH_OF (gEffects);
 
 static void UpdatePalleteIndex(uint8_t Increase) {
-  if (Increase) {
+  if (Increase == 0) {
     gPalleteIndex++;
   } else {
     gPalleteIndex--;
@@ -118,7 +154,7 @@ static void UpdatePalleteIndex(uint8_t Increase) {
 }
 
 static void UpdateEffectsIndex(uint8_t Increase) {
-  if (Increase) {
+  if (Increase == 0) {
     gEffectsIndex++;
   } else {
     gEffectsIndex--;
@@ -126,7 +162,7 @@ static void UpdateEffectsIndex(uint8_t Increase) {
 }
 
 static void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
-  uint8_t GpioPinCurrentState = HAL_GPIO_ReadPin(GPIOA, GpioPin);
+  uint8_t GpioPinCurrentState = HAL_GPIO_ReadPin(GPIOC, GpioPin);
   if (GpioPinCurrentState != gPinState[GpioIndex]) {
     if (gPinState[GpioIndex] == BUTTON_PRESSED) {
       if (gPinHoldTime[GpioIndex] < RESET_HOLD_TIME && gPinHoldTime[GpioIndex] >= MINIMAL_HOLD_TIME) {
@@ -136,12 +172,13 @@ static void UpdatePinLogic(uint16_t GpioPin, uint8_t GpioIndex) {
       }
     } else if (gPinState[GpioIndex] == BUTTON_NOT_PRESSED) {
       if (gPinHoldTime[GpioIndex] >= RESET_HOLD_TIME) {
-        HAL_PWR_EnterSTANDBYMode();
+        // HAL_PWR_EnterSTANDBYMode();
       }
       gPinHoldTime[GpioIndex] = 0;
     }
   } else if (GpioPinCurrentState == BUTTON_PRESSED) {
     if (gPinHoldTime[GpioIndex] >= RESET_HOLD_TIME) {
+      // SendUartBlockingMessage("T\r\n");
       TurnOff = 1;
     }
     gPinHoldTime[GpioIndex]++;
@@ -158,6 +195,9 @@ static void UpdateLeds() {
       gEffects[gEffectsIndex % gEffectsSize]();
     }
     PrepareBufferForTransaction(0);
+    // char message[40];
+    // sprintf();
+    // SendUartBlockingMessage("%d\r\n", gEffectsIndex);
     StartLedsDma();
   }
 }
@@ -175,7 +215,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim2) {
     HAL_IWDG_Refresh(&hiwdg);
     UpdatePinLogic(GPIO_PIN_LEFT, GPIO_PIN_INDEX_LEFT);
-    UpdatePinLogic(GPIO_PIN_RIGHT, GPIO_PIN_INDEX_RIGHT);
     UpdateLeds();
   }
 }
@@ -213,29 +252,35 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
   MX_GPIO_Init();
-  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_LEFT) == BUTTON_NOT_PRESSED &&
-      HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_RIGHT) == BUTTON_NOT_PRESSED) {
-    MX_IWDG_Init();
-    HAL_PWR_EnterSTANDBYMode();
-  }
+  // if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_LEFT) == BUTTON_NOT_PRESSED) {
+  //   MX_IWDG_Init();
+    // HAL_PWR_EnterSTANDBYMode();
+  // }
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_USART2_UART_Init();
-  MX_USART1_UART_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   srand(69);
   InitializeConfigs(1);
   InitializeConfig(0, LED_AMOUNT, NULL, gLedBuffer, gLedBufferSize);
   for (uint8_t Index = 0; Index < LED_AMOUNT; Index++) {
-    GetLedSection(0, Index)->Color = (COLOR_GRB){255,255,255};
+    // GetLedSection(0, Index)->Color = (COLOR_GRB){206,134,203};
+    GetLedSection(0, Index)->Color = (COLOR_GRB){255,255,20};
   }
   PrepareBufferForTransaction(0);
   SendUartBlockingMessage("STM initialized\r\n");
+
+  char message[100];
+  COLOR_HSV Green = RgbToHsv((COLOR_GRB){191, 191, 191});
+  COLOR_HSV Red = RgbToHsv((COLOR_GRB){0, 127, 0});
+  sprintf(message, "Rgb to hsv Green: %d %d %d Red: %d %d %d\r\n", Green.h, Green.s, Green.v, Red.h, Red.s, Red.v);
+  SendUartBlockingMessage(message);
   StartLedsDma();
   HAL_Delay(1000);
   SendUartBlockingMessage("STM started\r\n");
@@ -264,6 +309,11 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
@@ -272,8 +322,11 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL16;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 64;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -348,7 +401,7 @@ static void MX_TIM1_Init(void)
   htim1.Init.Period = 79;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -375,7 +428,7 @@ static void MX_TIM1_Init(void)
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -443,39 +496,6 @@ static void MX_TIM2_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -509,6 +529,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -520,14 +556,26 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pins : PA10 PA11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

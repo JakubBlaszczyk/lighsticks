@@ -9,7 +9,8 @@
 #include "Effect.h"
 
 static const COLOR_GRB gTemperatures[] = {{255, 255, 255}, {147, 255, 41}, {241, 255, 224}, {235, 212, 255}, {244, 255, 242}};
-static const COLOR_GRB gColorCorrection = {176, 255, 240};
+static const COLOR_GRB gColorCorrection = {200, 255, 240};
+// static const COLOR_GRB gColorCorrection = {220, 255, 90};
 
 typedef struct
 {
@@ -59,7 +60,7 @@ uint8_t InitializeConfig(uint8_t ConfigIndex, uint8_t AmountOfSections, const ui
       gConfigs[ConfigIndex].Sections[Index].LedCount = LedCounts[Index];
     }
   }
-  gConfigs[ConfigIndex].Brightness = 20;
+  gConfigs[ConfigIndex].Brightness = MINIMAL_BRIGHTNESS;
   gConfigs[ConfigIndex].SectionsSize = AmountOfSections;
   gConfigs[ConfigIndex].BufferSize = BufferSize;
   gConfigs[ConfigIndex].Buffer = Buffer;
@@ -144,12 +145,14 @@ void TurnOffLeds(uint8_t ConfigIndex) {
   }
 }
 
-void ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {
+COLOR_GRB ShowEffectPalleteSmoothTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {
   uint8_t SectionIndex;
+  COLOR_GRB Color = GetColorFromPalleteSmooth (gHue, Pallete);
   for (SectionIndex = 0; SectionIndex < gConfigs[ConfigIndex].SectionsSize; SectionIndex++) {
-    gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSmooth (gHue, Pallete);
+    gConfigs[ConfigIndex].Sections[SectionIndex].Color = Color;
   }
   gHue += HueStep;
+  return gConfigs[0].Sections[0].Color;
 }
 
 void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, PALLETE_ARRAY *Pallete) {
@@ -158,6 +161,10 @@ void ShowEffectPalleteInstantTransition(uint8_t ConfigIndex, uint8_t HueStep, PA
     gConfigs[ConfigIndex].Sections[SectionIndex].Color = GetColorFromPalleteSolid (gHue, Pallete);
   }
   gHue += HueStep;
+}
+
+void ShowEffectBrightness(uint8_t ConfigIndex, uint8_t Brightness) {
+  gConfigs[ConfigIndex].Brightness = Brightness;
 }
 
 void ShowEffectRainbow(uint8_t ConfigIndex, uint8_t ColorStep, uint8_t HueStep) {
